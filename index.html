@@ -703,7 +703,7 @@
             </fieldset>
             <label class="custom-amount" id="customAmount" hidden="">
               <span>Rp</span>
-              <input id="budget" name="budget" type="number" min="0" step="1" inputmode="numeric" placeholder="e.g. 300000" data-i18n-placeholder="budgetPlaceholder" aria-label="Proposed budget in rupiah" data-i18n-aria="budgetAria">
+              <input id="budget" name="budget" type="text" inputmode="numeric" autocomplete="off" placeholder="e.g. 300000" data-i18n-placeholder="budgetPlaceholder" aria-label="Proposed budget in rupiah" data-i18n-aria="budgetAria">
             </label>
             <p class="helper" data-i18n="budgetHelper">Rp0 requests a pro bono slot. Admin will confirm what is possible.</p>
           </div>
@@ -854,6 +854,12 @@
       };
 
       const rupiah = value => `Rp${Number(value).toLocaleString('id-ID')}`;
+      const parseRupiah = value => {
+        const normalized = String(value).trim().replace(/^rp\s*/i, '').replace(/[.,\s]/g, '');
+        if (normalized === '' || !/^\d+$/.test(normalized)) return null;
+        const amount = Number(normalized);
+        return Number.isSafeInteger(amount) && amount >= 0 ? amount : null;
+      };
       const selectedIssue = () => form.elements.issue.value ? issues[form.elements.issue.value] : null;
       const selectedFeeMode = () => form.elements.feeMode.value;
       const selectedMode = () => form.elements.mode.value;
@@ -942,8 +948,8 @@
           return false;
         }
         if (selectedFeeMode() === 'custom') {
-          const value = budget.value.trim();
-          if (value === '' || !/^\\d+$/.test(value) || Number(value) < 0) {
+          const value = parseRupiah(budget.value);
+          if (value === null) {
             error.textContent = t().budgetError;
             budget.setAttribute('aria-invalid', 'true');
             budget.focus();
@@ -966,7 +972,7 @@
           return false;
         }
         required.forEach(field => field.removeAttribute('aria-invalid'));
-        const digits = form.elements.wa.value.replace(/\\D/g, '');
+        const digits = form.elements.wa.value.replace(/\D/g, '');
         if (digits.length < 9 || digits.length > 15) {
           error.textContent = t().waError;
           form.elements.wa.setAttribute('aria-invalid', 'true');
@@ -985,7 +991,7 @@
 
       function feeText() {
         const issue = selectedIssue();
-        if (selectedFeeMode() === 'custom') return `${rupiah(budget.value)} (${t().proposedSuffix})`;
+        if (selectedFeeMode() === 'custom') return `${rupiah(parseRupiah(budget.value))} (${t().proposedSuffix})`;
         return issue.fee === null ? t().discussAdmin : `${rupiah(issue.fee)} (${t().referenceSuffix})`;
       }
 
@@ -1054,6 +1060,10 @@
         event.target.removeAttribute?.('aria-invalid');
         if (step === 1) document.querySelector('#step1Error').textContent = '';
         if (step === 2) document.querySelector('#step2Error').textContent = '';
+      });
+      budget.addEventListener('blur', () => {
+        const value = parseRupiah(budget.value);
+        if (value !== null) budget.value = value.toLocaleString('id-ID');
       });
       backButton.addEventListener('click', () => showStep(step - 1));
       nextButton.addEventListener('click', () => {
